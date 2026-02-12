@@ -18,6 +18,9 @@ class Colours:
     RED = (255, 0, 0)
     BLUE = (0, 0, 255)
 
+    LIGHT_RED = (220, 150, 150)
+    LIGHT_BLUE = (150, 150, 220)
+
 
 class Display:
     """Handles the display and rendering of the simulation."""
@@ -70,14 +73,28 @@ class MagnetManager:
 
     def __init__(self, display: Display):
         self.display = display
+        self.display.attach(self)
         self.magnets = list()
+        self.ferrites = list()
 
-    def attach(self, magnet: 'Magnet'):
+    def attach(self, element):
+        """Attaches an element to the manager and the display."""
+        if isinstance(element, Magnet):
+            self.attach_magnet(element)
+        elif isinstance(element, FerriteDipole):
+            self.attach_ferrite(element)
+
+    def attach_magnet(self, magnet: 'Magnet'):
         """Attaches a magnet to the manager and the display."""
         self.magnets.append(magnet)
         self.display.attach(magnet)
         # Override the magnet's magnets reference with a reference to the manager's magnets
         magnet.magnets = self.magnets
+
+    def attach_ferrite(self, ferrite: 'FerriteDipole'):
+        """Attaches a ferrite dipole to the manager and the display."""
+        self.ferrites.append(ferrite)
+        self.display.attach(ferrite)
 
     def draw(self, screen: pygame.Surface):
         """Draws all magnets and their field lines."""
@@ -85,8 +102,6 @@ class MagnetManager:
         on_magnets = [magnet for magnet in self.magnets if magnet.strength > 0]
         for magnet in on_magnets:
             magnet.draw_field_lines(screen, on_magnets)
-        for magnet in self.magnets:
-            magnet.draw(screen)
 
 
 class Magnet:
@@ -203,7 +218,61 @@ class Magnet:
         else:
             pygame.draw.circle(screen, Colours.DARK_GRAY, self.south, self.radius)
             pygame.draw.circle(screen, Colours.DARK_GRAY, self.north, self.radius)
-        self.draw_field_lines(screen, self.magnets)
+
+
+class FerriteDipole:
+    """Represents a ferrite dipole that can rotate based on the magnetic field."""
+
+    def __init__(
+        self,
+        position: tuple[int, int],
+        length: int = 80,
+        width: int = 5,
+    ):
+        self.position = position
+        self.length = length
+        self.width = width
+        self.angle = 0
+        self.north = (position[0], position[1] - length/2)
+        self.south = (position[0], position[1] + length/2)
+
+    def update_moment(self, magnets: List[Magnet]):
+        """Updates the moment of the ferrite dipole based on the magnetic field."""
+        force_x, force_y = 0, 0
+        # Calculate the sum of the forces on the ferrite (moment)
+        for r in range(-int(self.length/2), int(self.length/2)+1, 2):
+            x = self.position[0] + r * math.cos(math.radians(self.angle))
+            y = self.position[1] + r * math.sin(math.radians(self.angle))
+            for magnet in magnets:
+                for pole in [magnet.south, magnet.north]:
+                    strength = magnet.strength if pole == magnet.south else -magnet.strength
+                    dx = pole[0] - x
+                    dy = pole[1] - y
+                    if not dx and not dy:
+                        return 0, 0
+                    distance = math.sqrt(dx**2 + dy**2)
+                    force = strength / distance**2
+                    angle = math.atan2(dy, dx)
+                    force_x += force * math.cos(angle)
+                    force_y += force * math.sin(angle)
+
+        angle = math.atan2(force_y, force_x)
+        self.angle = math.degrees(angle)
+
+        # Update the positions of the north and south poles based on the new moment
+        self.north = (
+            self.position[0] + (self.length/2) * math.cos(angle),
+            self.position[1] + (self.length/2) * math.sin(angle),
+        )
+        self.south = (
+            self.position[0] - (self.length/2) * math.cos(angle),
+            self.position[1] - (self.length/2) * math.sin(angle),
+        )
+
+    def draw(self, window: pygame.Surface):
+        """Draws the ferrite dipole as a line between the north and south poles."""
+        pygame.draw.line(window, Colours.LIGHT_RED, self.north, self.position, self.width)
+        pygame.draw.line(window, Colours.LIGHT_BLUE, self.south, self.position, self.width)
 
 
 if __name__ == "__main__":
@@ -212,8 +281,9 @@ if __name__ == "__main__":
 
     # Create a magnet manager and attach some magnets to it
     mm = MagnetManager(display)
-    mm.attach(Magnet((200, 150), 90))
-    mm.attach(Magnet((200, 250), -90))
+    mm.attach(Magnet((100, 150), 45))
+    mm.attach(Magnet((100, 250), -45))
+    mm.attach(FerriteDipole((300, 200)))
 
     # Run the display loop
     display.run()
