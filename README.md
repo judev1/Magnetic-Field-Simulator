@@ -20,6 +20,9 @@ A ferrite which rotates under the influence of a magnetic field can also be adde
 ```py
 mm.attach(FerriteDipole((300, 200)))
 ```
+Alternatively, you can run my three magnet dipole simulation:
+```py
+three_magnet_simulation(display) # as simple as that
 ```
 Finally, the display loop must be run
 ```py
