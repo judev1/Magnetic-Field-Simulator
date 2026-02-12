@@ -1,6 +1,6 @@
 import pygame
 import math
-from typing import Union, Tuple, List
+from typing import Union, Optional, Tuple, List
 
 
 # Custom types for type hinting
@@ -45,7 +45,7 @@ class Display:
                 pygame.draw.line(self.screen, Colours.LIGHT_GREY, (0, y), (self.width, y))
 
     def update(self):
-        """Updates the display by drawing all elements and flipping the screen."""
+        """Updates the display by drawing the grid and all the elements."""
         self.grid()
         # Draw all elements onto the screen
         for element in self.elements:
@@ -59,9 +59,34 @@ class Display:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            self.update() # Update the display every frame
+            # Update the display every frame
+            self.update()
             self.clock.tick(60)
         pygame.quit()
+
+
+class MagnetManager:
+    """Manages multiple magnets and their interactions together."""
+
+    def __init__(self, display: Display):
+        self.display = display
+        self.magnets = list()
+
+    def attach(self, magnet: 'Magnet'):
+        """Attaches a magnet to the manager and the display."""
+        self.magnets.append(magnet)
+        self.display.attach(magnet)
+        # Override the magnet's magnets reference with a reference to the manager's magnets
+        magnet.magnets = self.magnets
+
+    def draw(self, screen: pygame.Surface):
+        """Draws all magnets and their field lines."""
+        # Separate magnets that are 'off,' to ignore field lines and collisions
+        on_magnets = [magnet for magnet in self.magnets if magnet.strength > 0]
+        for magnet in on_magnets:
+            magnet.draw_field_lines(screen, on_magnets)
+        for magnet in self.magnets:
+            magnet.draw(screen)
 
 
 class Magnet:
@@ -73,14 +98,18 @@ class Magnet:
     def __init__(
             self,
             position: Point,
-            magnets: List['Magnet'],
             angle: Number = 0,
             strength: Number = 10,
             radius: int = 8,
             separation: int = 40,
-            field_lines: int = 12
+            field_lines: int = 12,
+            magnets: Optional[List['Magnet']] = None,
         ):
-        self.magnets = magnets
+        # List of magnets for field calculations
+        self.magnets = magnets or []
+        # Add this magnet to the list of magnets for field calculations
+        self.magnets.append(self)
+
         self.x, self.y = position
         self.angle = math.radians(angle)
         self.separation = separation
@@ -181,12 +210,10 @@ if __name__ == "__main__":
     # Set up the display
     display = Display(400, 400, "Magnetism Simulation")
 
-    # Create a magnet and attach it to the display
-    magnets = list()
-    magnets.append(Magnet((200, 150), magnets, 90))
-    magnets.append(Magnet((200, 250), magnets, -90))
-    for magnet in magnets:
-        display.attach(magnet)
+    # Create a magnet manager and attach some magnets to it
+    mm = MagnetManager(display)
+    mm.attach(Magnet((200, 150), 90))
+    mm.attach(Magnet((200, 250), -90))
 
     # Run the display loop
     display.run()
