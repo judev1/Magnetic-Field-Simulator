@@ -275,15 +275,42 @@ class FerriteDipole:
         pygame.draw.line(window, Colours.LIGHT_BLUE, self.south, self.position, self.width)
 
 
+def three_magnet_simulation(display: Display):
+    """Simulates the force experienced by a dipole by changing magnet strengths over time."""
+    class Animation:
+        """Wrapper to animate values via the draw method."""
+        def __init__(self, magnets: List[Magnet], dipole: FerriteDipole):
+            self.magnets = magnets
+            self.dipole = dipole
+            self.index = 0
+            self.next = 1
+        def draw(self, _):
+            # Gradually modify the strengths of the magnets
+            self.magnets[self.index].strength -= 0.1
+            self.magnets[self.next].strength += 0.1
+            if self.magnets[self.index].strength <= 0:
+                self.magnets[self.index].strength = 0
+                self.magnets[self.next].strength = 10
+                self.index = self.next
+                self.next = (self.next + 1) % len(self.magnets)
+            # Update the moments of the ferrite based on the new magnet strengths
+            self.dipole.update_moment(self.magnets)
+    # Attach magnets and dipoles to the manager
+    x_offset = 100 * math.sin(math.radians(120))
+    mm = MagnetManager(display)
+    mm.attach(Magnet((200, 125), 90))
+    mm.attach(Magnet((200 + x_offset, 275), 225))
+    mm.attach(Magnet((200 - x_offset, 275), -45, 0))
+    mm.attach(FerriteDipole((200, 200)))
+    display.attach(Animation(mm.magnets, mm.ferrites[0]))
+
+
 if __name__ == "__main__":
     # Set up the display
     display = Display(400, 400, "Magnetism Simulation")
 
-    # Create a magnet manager and attach some magnets to it
-    mm = MagnetManager(display)
-    mm.attach(Magnet((100, 150), 45))
-    mm.attach(Magnet((100, 250), -45))
-    mm.attach(FerriteDipole((300, 200)))
+    # Set up the three magnet simulation
+    three_magnet_simulation(display)
 
     # Run the display loop
     display.run()
