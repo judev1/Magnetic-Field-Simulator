@@ -1,6 +1,6 @@
 import pygame
 import math
-from typing import Union, Tuple, Any
+from typing import Union, Tuple, List
 
 
 # Custom types for type hinting
@@ -73,12 +73,14 @@ class Magnet:
     def __init__(
             self,
             position: Point,
+            magnets: List['Magnet'],
             angle: Number = 0,
             strength: Number = 10,
             radius: int = 8,
             separation: int = 40,
             field_lines: int = 12
         ):
+        self.magnets = magnets
         self.x, self.y = position
         self.angle = math.radians(angle)
         self.separation = separation
@@ -100,7 +102,7 @@ class Magnet:
         """Checks if a point is within the bounds of the display."""
         return 0 <= point[0] < 400 and 0 <= point[1] < 400
 
-    def near_pole(self, point: Point, magnets: Tuple['Magnet']) -> bool:
+    def near_pole(self, point: Point, magnets: List['Magnet']) -> bool:
         """Checks if a point is near any pole of any of the magnets."""
         for magnet in list(magnets):
             # Subtract a small amount to prevent field lines from stopping just outside the pole
@@ -117,12 +119,12 @@ class Magnet:
     def validate_field_position(
             self,
             point: Point,
-            magnets: Tuple['Magnet']
+            magnets: List['Magnet']
         ) -> bool:
         """Checks if a point is valid for drawing a field line (not out of bounds and not near a pole)."""
         return self.in_bounds(point) and not self.near_pole(point, magnets)
 
-    def calculate_field_direction(self, point: Point, magnets: Tuple['Magnet']) -> float:
+    def calculate_field_direction(self, point: Point, magnets: List['Magnet']) -> float:
         """Calculates the direction of the magnetic field strength at a given point due to surrounding magnets."""
         x_component = 0
         y_component = 0
@@ -142,7 +144,7 @@ class Magnet:
         # Calculate the angle of the resulting field vector
         return math.atan2(y_component, x_component)
 
-    def draw_field_lines(self, screen: pygame.Surface, magnets: Tuple['Magnet']):
+    def draw_field_lines(self, screen: pygame.Surface, magnets: List['Magnet']):
         """Draws magnetic field lines from the north pole."""
         # Draw field lines from each pole at regular angular intervals
         angle_increment = 2 * math.pi / self.field_lines
@@ -172,7 +174,7 @@ class Magnet:
         else:
             pygame.draw.circle(screen, Colours.DARK_GRAY, self.south, self.radius)
             pygame.draw.circle(screen, Colours.DARK_GRAY, self.north, self.radius)
-        self.draw_field_lines(screen, (self,))
+        self.draw_field_lines(screen, self.magnets)
 
 
 if __name__ == "__main__":
@@ -180,8 +182,11 @@ if __name__ == "__main__":
     display = Display(400, 400, "Magnetism Simulation")
 
     # Create a magnet and attach it to the display
-    magnet = Magnet((200, 200))
-    display.attach(magnet)
+    magnets = list()
+    magnets.append(Magnet((200, 150), magnets, 90))
+    magnets.append(Magnet((200, 250), magnets, -90))
+    for magnet in magnets:
+        display.attach(magnet)
 
     # Run the display loop
     display.run()
