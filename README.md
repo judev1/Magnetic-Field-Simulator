@@ -10,13 +10,16 @@ A simple magnet can be simulated by initialising a magnet object and attaching i
 magnet = Magnet((200, 200))
 display.attach(magnet)
 ```
-Multiple magnets can also be added to interact with one another
+Multiple magnets can also be added to interact with one another using a magnet manager:
 ```py
-magnets = list()
-magnets.append(Magnet((200, 150), magnets, 90))
-magnets.append(Magnet((200, 250), magnets, -90))
-for magnet in magnets:
-    display.attach(magnet)
+mm = MagnetManager(display)
+mm.attach(Magnet((100, 150), 45))
+mm.attach(Magnet((100, 250), -45))
+```
+A ferrite which rotates under the influence of a magnetic field can also be added:
+```py
+mm.attach(FerriteDipole((300, 200)))
+```
 ```
 Finally, the display loop must be run
 ```py
