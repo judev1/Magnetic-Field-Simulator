@@ -1,4 +1,11 @@
 import pygame
+import math
+from typing import Union, Tuple, Any
+
+
+# Custom types for type hinting
+Number = Union[int, float] # Represents integers and floats
+Point = Tuple[Number, Number] # Represents an x, y coordinate
 
 
 class Colours:
@@ -7,6 +14,9 @@ class Colours:
     WHITE = (255, 255, 255)
     LIGHT_GREY = (211, 211, 211)
     DARK_GRAY = (169, 169, 169)
+
+    RED = (255, 0, 0)
+    BLUE = (0, 0, 255)
 
 
 class Display:
@@ -54,7 +64,124 @@ class Display:
         pygame.quit()
 
 
+class Magnet:
+    """Represents a simple magnet consisting of two point charges."""
+
+    # Resolution for field line calculations
+    FIELD_RESOLUTION = 1
+
+    def __init__(
+            self,
+            position: Point,
+            angle: Number = 0,
+            strength: Number = 10,
+            radius: int = 8,
+            separation: int = 40,
+            field_lines: int = 12
+        ):
+        self.x, self.y = position
+        self.angle = math.radians(angle)
+        self.separation = separation
+
+        # Calculate the positions of the two poles based on the angle and separation
+        south_x = self.x + self.separation/2 * math.sin(self.angle)
+        south_y = self.y - self.separation/2 * math.cos(self.angle)
+        self.south = (south_x, south_y)
+
+        north_x = self.x - self.separation/2 * math.sin(self.angle)
+        north_y = self.y + self.separation/2 * math.cos(self.angle)
+        self.north = (north_x, north_y)
+
+        self.strength = strength
+        self.radius = radius
+        self.field_lines = field_lines
+
+    def in_bounds(self, point: Point) -> bool:
+        """Checks if a point is within the bounds of the display."""
+        return 0 <= point[0] < 400 and 0 <= point[1] < 400
+
+    def near_pole(self, point: Point, magnets: Tuple['Magnet']) -> bool:
+        """Checks if a point is near any pole of any of the magnets."""
+        for magnet in list(magnets):
+            # Subtract a small amount to prevent field lines from stopping just outside the pole
+            radius = magnet.radius - 1
+            # Check if the point is within the radius of either pole of the magnet
+            for pole in [magnet.south, magnet.north]:
+                dx = point[0] - pole[0]
+                dy = point[1] - pole[1]
+                distance_squared = dx**2 + dy**2
+                if distance_squared < radius**2:
+                    return True
+        return False
+
+    def validate_field_position(
+            self,
+            point: Point,
+            magnets: Tuple['Magnet']
+        ) -> bool:
+        """Checks if a point is valid for drawing a field line (not out of bounds and not near a pole)."""
+        return self.in_bounds(point) and not self.near_pole(point, magnets)
+
+    def calculate_field_direction(self, point: Point, magnets: Tuple['Magnet']) -> float:
+        """Calculates the direction of the magnetic field strength at a given point due to surrounding magnets."""
+        x_component = 0
+        y_component = 0
+        for magnet in magnets:
+            # Calculate the contribution of each pole to the field at the point
+            for i, pole in enumerate([magnet.south, magnet.north]):
+                dx = point[0] - pole[0]
+                dy = point[1] - pole[1]
+                distance_squared = dx**2 + dy**2
+                if distance_squared == 0:
+                    continue # No dividing by zero
+                # The strength contribution is positive (attractive) for the north pole and negative (repulsive) for the south pole
+                pole_strength = -magnet.strength if i == 0 else magnet.strength
+                strength_contribution = pole_strength / distance_squared
+                x_component += strength_contribution * (dx / math.sqrt(distance_squared))
+                y_component += strength_contribution * (dy / math.sqrt(distance_squared))
+        # Calculate the angle of the resulting field vector
+        return math.atan2(y_component, x_component)
+
+    def draw_field_lines(self, screen: pygame.Surface, magnets: Tuple['Magnet']):
+        """Draws magnetic field lines from the north pole."""
+        # Draw field lines from each pole at regular angular intervals
+        angle_increment = 2 * math.pi / self.field_lines
+        for pole, offset in [(self.north, 0), (self.south, math.pi)]:
+            # Start field lines at regular angles around the pole
+            for i in range(self.field_lines):
+                angle = i * angle_increment
+                x = pole[0] + self.radius * math.cos(angle)
+                y = pole[1] + self.radius * math.sin(angle)
+                points = [(x, y)]
+                # Trace the field while still in bounds and not near a pole
+                while self.validate_field_position((x, y), magnets):
+                    direction = self.calculate_field_direction(points[-1], magnets)
+                    direction += offset # Field travels in opposite direction for the south pole
+                    x += self.FIELD_RESOLUTION * math.cos(direction)
+                    y += self.FIELD_RESOLUTION * math.sin(direction)
+                    points.append((x, y))
+                # Only draw if there are at least 2 points to form a line
+                if len(points) > 1:
+                    pygame.draw.lines(screen, Colours.BLACK, False, points, 1)
+
+    def draw(self, screen: pygame.Surface):
+        """Draws the magnet as two point charges."""
+        if self.strength > 0:
+            pygame.draw.circle(screen, Colours.BLUE, self.south, self.radius)
+            pygame.draw.circle(screen, Colours.RED, self.north, self.radius)
+        else:
+            pygame.draw.circle(screen, Colours.DARK_GRAY, self.south, self.radius)
+            pygame.draw.circle(screen, Colours.DARK_GRAY, self.north, self.radius)
+        self.draw_field_lines(screen, (self,))
+
+
 if __name__ == "__main__":
     # Set up the display
     display = Display(400, 400, "Magnetism Simulation")
+
+    # Create a magnet and attach it to the display
+    magnet = Magnet((200, 200))
+    display.attach(magnet)
+
+    # Run the display loop
     display.run()
