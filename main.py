@@ -20,6 +20,11 @@ class Display:
         self.screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
         self.clock = pygame.time.Clock()
+        self.elements = [] # Holds the elements to be drawn on the screen
+
+    def attach(self, element):
+        """Attaches an element to the display for rendering."""
+        self.elements.append(element)
 
     def grid(self):
         """Draws a grid on the display."""
@@ -29,6 +34,14 @@ class Display:
             for y in range(0, self.height, 20):
                 pygame.draw.line(self.screen, Colours.LIGHT_GREY, (0, y), (self.width, y))
 
+    def update(self):
+        """Updates the display by drawing all elements and flipping the screen."""
+        self.grid()
+        # Draw all elements onto the screen
+        for element in self.elements:
+            element.draw(self.screen)
+        pygame.display.flip()
+
     def run(self):
         running = True
         # Main loop that manages events and updates the display
@@ -36,7 +49,7 @@ class Display:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-            self.grid()
+            self.update() # Update the display every frame
             self.clock.tick(60)
         pygame.quit()
 
